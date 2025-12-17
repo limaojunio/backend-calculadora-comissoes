@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
 import { ContratosService } from '../contratos/contratos.service';
-import { RelatorioMensalDto } from './dto/relatorio-mensal.dto';
+import { Role } from '../usuario/entities/usuario.entity';
 
 @Injectable()
 export class RelatoriosService {
@@ -8,58 +8,52 @@ export class RelatoriosService {
     private readonly contratosService: ContratosService,
   ) {}
 
-  /**
-   * Cache em memória:
-   * chave = role-vendedorId-mes-ano
-   */
-  private cache = new Map<string, RelatorioMensalDto>();
-
   async gerarRelatorioMensal(
     mes: number,
     ano: number,
     usuario: any,
-  ): Promise<RelatorioMensalDto> {
-
-    const chaveCache = `${usuario.role}-${usuario.vendedorId}-${mes}-${ano}`;
-
-    // 🔹 Retorna do cache se existir
-    const cacheExistente = this.cache.get(chaveCache);
-    if (cacheExistente) {
-      return cacheExistente;
-    }
-
+  ) {
     const contratos = await this.contratosService.listarContratos(usuario);
 
-    // 🔹 filtra por mês/ano
     const filtrados = contratos.filter((c) => {
       const data = new Date(c.dataImplantacao);
       return (
-        data.getMonth() + 1 === Number(mes) &&
-        data.getFullYear() === Number(ano)
+        data.getMonth() + 1 === mes &&
+        data.getFullYear() === ano
       );
     });
 
     const totalVendido = filtrados.reduce(
-      (acc, c) => acc + c.valor,
+      (acc, c) => acc + Number(c.valor),
       0,
     );
 
     const totalComissao = filtrados.reduce(
-      (acc, c) => acc + c.valorComissao,
+      (acc, c) => acc + Number(c.valorComissao),
       0,
     );
 
-    const relatorio: RelatorioMensalDto = {
-      mes,
-      ano,
-      totalVendido,
-      totalComissao,
-      quantidadeContratos: filtrados.length,
-    };
+    if (usuario.role === Role.VENDEDOR) {
+      return {
+        mes,
+        ano,
+        vendedor: usuario.nome,
+        quantidadeContratos: filtrados.length,
+        totalVendido,
+        totalComissao,
+      };
+    }
 
-    // 🔹 Salva no cache
-    this.cache.set(chaveCache, relatorio);
+    if (usuario.role === Role.ADMIN) {
+      return {
+        mes,
+        ano,
+        quantidadeContratos: filtrados.length,
+        totalVendidoGeral: totalVendido,
+        totalComissaoGeral: totalComissao,
+      };
+    }
 
-    return relatorio;
+    throw new ForbiddenException('Perfil não autorizado');
   }
 }

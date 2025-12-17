@@ -7,6 +7,7 @@ import { ContratosModule } from './contratos/contratos.module';
 import { ProdService } from './data/services/prod.service';
 import { HealthModule } from './health/health.module';
 import { UsuarioModule } from './usuario/usuario.module';
+import { RelatoriosModule } from './relatorios/relatorios.module';
 
 @Module({
   imports: [
@@ -25,7 +26,7 @@ import { UsuarioModule } from './usuario/usuario.module';
       imports: [ConfigModule],
       inject: [],
       useFactory: () => ({
-        type: 'mysql',
+        type: 'postgres',
         host: process.env.LEGACY_DB_HOST,
         port: Number(process.env.LEGACY_DB_PORT),
         username: process.env.LEGACY_DB_USER,
@@ -40,6 +41,7 @@ import { UsuarioModule } from './usuario/usuario.module';
     UsuarioModule,
     ContratosModule,
     HealthModule,
+    RelatoriosModule,
   ],
   controllers: [AppController],
   providers: [],

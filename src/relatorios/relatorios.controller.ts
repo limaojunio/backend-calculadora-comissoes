@@ -1,17 +1,14 @@
 import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
-import { RolesGuard } from '../auth/guard/roles.guard';
 import { RelatoriosService } from './relatorios.service';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
-@ApiTags('Relatórios')
+@ApiTags('Relatorios')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
 @Controller('relatorios')
 export class RelatoriosController {
-  constructor(
-    private readonly relatoriosService: RelatoriosService,
-  ) {}
+  constructor(private readonly relatoriosService: RelatoriosService) {}
 
   @Get('mensal')
   async mensal(
@@ -20,8 +17,8 @@ export class RelatoriosController {
     @Req() req,
   ) {
     return this.relatoriosService.gerarRelatorioMensal(
-      mes,
-      ano,
+      Number(mes),
+      Number(ano),
       req.user,
     );
   }

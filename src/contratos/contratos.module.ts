@@ -8,5 +8,6 @@ import { ContratosLegacyRepository } from './infra/contratos-legacy.repository';
   imports: [ComissoesModule],
   controllers: [ContratosController],
   providers: [ContratosService, ContratosLegacyRepository],
+  exports: [ContratosService],
 })
 export class ContratosModule {}
