@@ -18,6 +18,16 @@ export enum Role {
   VENDEDOR = 'VENDEDOR',
 }
 
+/**
+ * 🔹 Nível Executivo (MVP)
+ * O próprio usuário escolhe no cadastro
+ */
+export enum NivelExecutivo {
+  JUNIOR = 'JUNIOR',
+  PLENO = 'PLENO',
+  SENIOR = 'SENIOR',
+}
+
 @Entity({ name: 'tb_usuarios' })
 export class Usuario {
   @PrimaryGeneratedColumn()
@@ -54,6 +64,18 @@ export class Usuario {
   })
   @ApiProperty({ enum: Role })
   role: Role;
+
+  /**
+   * 🔹 Nível executivo do colaborador
+   * (usado para simulação e comissão)
+   */
+  @Column({
+    type: 'enum',
+    enum: NivelExecutivo,
+    nullable: false,
+  })
+  @ApiProperty({ enum: NivelExecutivo })
+  nivelExecutivo: NivelExecutivo;
 
   /**
    * ID do vendedor no sistema legado

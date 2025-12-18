@@ -57,6 +57,7 @@ export class AuthService {
       usuario: usuario.usuario,
       foto: usuario.foto,
       role: usuario.role,
+      nivelExecutivo: usuario.nivelExecutivo,
       vendedorId: usuario.vendedorId,
       token: `Bearer ${this.jwtService.sign(payload)}`,
     };
