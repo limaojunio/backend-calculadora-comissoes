@@ -1,11 +1,64 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { IsNumber, IsBoolean, Min, Max } from 'class-validator';
 
 export class SimulacaoDto {
-  @ApiProperty()
-  valorVenda: number;
+  @ApiProperty({
+    description: 'Valor do contrato em reais',
+    example: 5000,
+    minimum: 500,
+  })
+  @IsNumber()
+  @Min(500)
+  valorContrato: number;
 
   @ApiProperty({
-    description: 'Ex: PLANO_SAUDE, SEGURO_VIDA, PME',
+    description: 'Taxa de conversão em percentual (0-100)',
+    example: 50,
+    minimum: 0,
+    maximum: 100,
   })
-  tipoProduto: string;
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  taxaConversao: number;
+
+  @ApiProperty({
+    description: 'Bônus Bradesco aplicado',
+    example: false,
+    default: false,
+  })
+  @IsBoolean()
+  bonusBradesco: boolean = false;
+
+  @ApiProperty({
+    description: 'Bônus Meta aplicado',
+    example: false,
+    default: false,
+  })
+  @IsBoolean()
+  bonusMeta: boolean = false;
+
+  @ApiProperty({
+    description: 'Bônus Performance aplicado',
+    example: false,
+    default: false,
+  })
+  @IsBoolean()
+  bonusPerformance: boolean = false;
+
+  @ApiProperty({
+    description: 'Bônus Time aplicado',
+    example: false,
+    default: false,
+  })
+  @IsBoolean()
+  bonusTime: boolean = false;
+
+  @ApiProperty({
+    description: 'Bônus Meta Geral aplicado (apenas PLENO e SENIOR)',
+    example: false,
+    default: false,
+  })
+  @IsBoolean()
+  bonusMetaGeral: boolean = false;
 }

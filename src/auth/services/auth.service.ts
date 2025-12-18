@@ -48,6 +48,7 @@ export class AuthService {
       sub: usuario.id,
       usuario: usuario.usuario,
       role: usuario.role,
+      nivelExecutivo: usuario.nivelExecutivo,
       vendedorId: usuario.vendedorId,
     };
 
