@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsBoolean, Min, Max } from 'class-validator';
+import { IsNumber, IsBoolean, Min, Max, IsOptional, IsEnum } from 'class-validator';
+import { NivelExecutivo } from '../../usuario/entities/usuario.entity';
 
 export class SimulacaoDto {
   @ApiProperty({
@@ -61,4 +62,16 @@ export class SimulacaoDto {
   })
   @IsBoolean()
   bonusMetaGeral: boolean = false;
+
+  @ApiProperty({
+    description: 'Nível executivo para simulação (opcional, apenas para ADMIN). Se não fornecido, usa o nível do usuário autenticado. VENDEDOR sempre usa seu próprio nível, ignorando este campo.',
+    enum: NivelExecutivo,
+    required: false,
+    example: NivelExecutivo.PLENO,
+  })
+  @IsOptional()
+  @IsEnum(NivelExecutivo, {
+    message: 'nivelExecutivoSimulacao deve ser JUNIOR, PLENO ou SENIOR',
+  })
+  nivelExecutivoSimulacao?: NivelExecutivo;
 }

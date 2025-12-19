@@ -2,6 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { ComissaoCalculadaDto } from './dto/comissao.dto';
 import { SimulacaoDto } from './dto/simulacao.dto';
 import { NivelExecutivo } from '../usuario/entities/usuario.entity';
+import { getBonusPorNivel } from './config/bonus-por-nivel.config';
 
 /**
  * Interface para configuração de faixas de contrato
@@ -17,15 +18,13 @@ interface FaixaContrato {
 
 /**
  * Interface para configuração de níveis executivos
+ * 
+ * Nota: Os percentuais de bônus são obtidos da configuração centralizada
+ * em bonus-por-nivel.config.ts através da função getBonusPorNivel()
  */
 interface NivelConfig {
   percentualBase: number; // Percentual sobre o valor do contrato (25%, 50%, 70%)
   label: string;
-  bonusBradescoPerc: number; // Sempre sobre a BASE
-  bonusMetaPerc: number; // Sempre sobre a BASE
-  bonusPerformancePerc: number; // Sempre sobre a BASE
-  bonusTimePerc: number; // Sempre sobre a BASE
-  bonusMetaGeralPerc: number; // Sempre sobre a BASE (apenas PLENO e SENIOR)
   metaConversao: number; // Meta de conversão esperada (30%, 60%, 70%)
 }
 
@@ -52,36 +51,23 @@ export class ComissoesService {
 
   /**
    * Configuração de níveis executivos conforme regras oficiais TRADS
+   * 
+   * Os percentuais de bônus são obtidos da configuração centralizada em bonus-por-nivel.config.ts
    */
   private readonly niveisConfig: Record<NivelExecutivo, NivelConfig> = {
     [NivelExecutivo.JUNIOR]: {
       percentualBase: 0.25, // 25% sobre o valor do contrato
       label: 'Júnior',
-      bonusBradescoPerc: 0.25, // 25% sobre a BASE
-      bonusMetaPerc: 0.1, // 10% sobre a BASE
-      bonusPerformancePerc: 0.15, // 15% sobre a BASE
-      bonusTimePerc: 0.1, // 10% sobre a BASE
-      bonusMetaGeralPerc: 0, // Não disponível para JUNIOR
       metaConversao: 30, // Meta de conversão: 30%
     },
     [NivelExecutivo.PLENO]: {
       percentualBase: 0.5, // 50% sobre o valor do contrato
       label: 'Pleno',
-      bonusBradescoPerc: 0.25, // 25% sobre a BASE
-      bonusMetaPerc: 0.1, // 10% sobre a BASE
-      bonusPerformancePerc: 0.15, // 15% sobre a BASE
-      bonusTimePerc: 0.05, // 5% sobre a BASE
-      bonusMetaGeralPerc: 0.05, // 5% sobre a BASE
       metaConversao: 60, // Meta de conversão: 60%
     },
     [NivelExecutivo.SENIOR]: {
       percentualBase: 0.7, // 70% sobre o valor do contrato
       label: 'Sênior',
-      bonusBradescoPerc: 0.25, // 25% sobre a BASE
-      bonusMetaPerc: 0.05, // 5% sobre a BASE
-      bonusPerformancePerc: 0.15, // 15% sobre a BASE
-      bonusTimePerc: 0.1, // 10% sobre a BASE
-      bonusMetaGeralPerc: 0.05, // 5% sobre a BASE
       metaConversao: 70, // Meta de conversão: 70%
     },
   };
@@ -139,26 +125,29 @@ export class ComissoesService {
     }
 
     // 4. Calcular BÔNUS PERCENTUAIS (sempre sobre a BASE)
+    // Usar configuração centralizada para garantir consistência
+    const bonusConfig = getBonusPorNivel(nivelExecutivo);
+    
     const valorBonusBradesco = simulacao.bonusBradesco
-      ? comissaoBase * config.bonusBradescoPerc
+      ? comissaoBase * bonusConfig.bradesco
       : 0;
 
     const valorBonusMeta = simulacao.bonusMeta
-      ? comissaoBase * config.bonusMetaPerc
+      ? comissaoBase * bonusConfig.meta
       : 0;
 
     const valorBonusPerformance = simulacao.bonusPerformance
-      ? comissaoBase * config.bonusPerformancePerc
+      ? comissaoBase * bonusConfig.performance
       : 0;
 
     const valorBonusTime = simulacao.bonusTime
-      ? comissaoBase * config.bonusTimePerc
+      ? comissaoBase * bonusConfig.time
       : 0;
 
-    // Meta Geral apenas para PLENO e SENIOR (ignorar se JUNIOR)
+    // Meta Geral: se o bônus não está disponível para o nível (metaGeral = 0), não aplicar mesmo que solicitado
     const valorBonusMetaGeral =
-      simulacao.bonusMetaGeral && nivelExecutivo !== NivelExecutivo.JUNIOR
-        ? comissaoBase * config.bonusMetaGeralPerc
+      simulacao.bonusMetaGeral && bonusConfig.metaGeral > 0
+        ? comissaoBase * bonusConfig.metaGeral
         : 0;
 
     // 5. Calcular COMISSÃO BRUTA
