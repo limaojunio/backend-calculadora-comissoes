@@ -31,7 +31,10 @@ export class ComissaoCalculadaDto {
   @ApiProperty({ description: 'Soma de todos os valores antes da conversão' })
   comissaoTotalBruta: number;
 
-  @ApiProperty({ description: 'Multiplicador aplicado pela taxa de conversão (0-1)' })
+  @ApiProperty({ 
+    description: 'Taxa equivalente calculada (TaxaConversaoReal ÷ MetaNivel, limitado a 1.0)',
+    example: 0.996,
+  })
   multiplicadorConversao: number;
 
   @ApiProperty({ description: 'Comissão final após aplicar multiplicador de conversão' })

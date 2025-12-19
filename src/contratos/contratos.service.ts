@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { ContratoDto } from './dto/contrato.dto';
 import { ContratosLegacyRepository } from './infra/contratos-legacy.repository';
 import { ComissoesService } from '../comissoes/comissoes.service';
-import { Role } from '../usuario/entities/usuario.entity';
+import { Role, NivelExecutivo } from '../usuario/entities/usuario.entity';
+import { SimulacaoDto } from '../comissoes/dto/simulacao.dto';
 
 @Injectable()
 export class ContratosService {
@@ -31,18 +32,48 @@ export class ContratosService {
             return c.corretor_nome === usuario.nome;
           });
 
+    // Validar que o usuário tem nivelExecutivo no token JWT
+    if (!usuario.nivelExecutivo) {
+      throw new BadRequestException(
+        'Nível executivo não encontrado no token JWT. Faça login novamente.',
+      );
+    }
+
+    const nivelExecutivo = usuario.nivelExecutivo as NivelExecutivo;
+
     return filtrados.map((c) => {
-      const comissao = this.comissaoService.calcular(
-        Number(c.valor),
-        'PLANO_SAUDE',
+      const valorContrato = Number(c.valor);
+
+      // Para listagem de contratos, usar valores padrão:
+      // - Taxa de conversão = meta do nível (100% de equivalência)
+      // - Sem bônus (apenas comissão base + bônus fixo da faixa)
+      const metasConversao: Record<NivelExecutivo, number> = {
+        [NivelExecutivo.JUNIOR]: 30,
+        [NivelExecutivo.PLENO]: 60,
+        [NivelExecutivo.SENIOR]: 70,
+      };
+
+      const simulacao: SimulacaoDto = {
+        valorContrato,
+        taxaConversao: metasConversao[nivelExecutivo], // Meta atingida = 100% de equivalência
+        bonusBradesco: false,
+        bonusMeta: false,
+        bonusPerformance: false,
+        bonusTime: false,
+        bonusMetaGeral: false,
+      };
+
+      const comissao = this.comissaoService.calcularComissao(
+        simulacao,
+        nivelExecutivo,
       );
 
       return {
         idCard: c.id_card,
         nomeCard: c.nome_card,
         corretorNome: c.corretor_nome,
-        valor: Number(c.valor),
-        valorComissao: comissao.valorComissao,
+        valor: valorContrato,
+        valorComissao: comissao.comissaoFinal, // Usar comissão final (já com taxa equivalente aplicada)
         dataImplantacao: c.data_implantacao,
         statusAtual: c.status_atual,
       };

@@ -19,15 +19,14 @@ interface FaixaContrato {
  * Interface para configuração de níveis executivos
  */
 interface NivelConfig {
-  taxa: number;
+  percentualBase: number; // Percentual sobre o valor do contrato (25%, 50%, 70%)
   label: string;
-  bonusBradescoPerc: number;
-  bonusMetaPerc: number;
-  bonusPerformancePerc: number;
-  bonusTimePerc: number;
-  bonusMetaGeralPerc: number;
-  conversaoBase: number;
-  multiplicador: number;
+  bonusBradescoPerc: number; // Sempre sobre a BASE
+  bonusMetaPerc: number; // Sempre sobre a BASE
+  bonusPerformancePerc: number; // Sempre sobre a BASE
+  bonusTimePerc: number; // Sempre sobre a BASE
+  bonusMetaGeralPerc: number; // Sempre sobre a BASE (apenas PLENO e SENIOR)
+  metaConversao: number; // Meta de conversão esperada (30%, 60%, 70%)
 }
 
 @Injectable()
@@ -52,41 +51,38 @@ export class ComissoesService {
   ];
 
   /**
-   * Configuração de níveis executivos
+   * Configuração de níveis executivos conforme regras oficiais TRADS
    */
   private readonly niveisConfig: Record<NivelExecutivo, NivelConfig> = {
     [NivelExecutivo.JUNIOR]: {
-      taxa: 0.25,
+      percentualBase: 0.25, // 25% sobre o valor do contrato
       label: 'Júnior',
-      bonusBradescoPerc: 0.25,
-      bonusMetaPerc: 0.1,
-      bonusPerformancePerc: 0.15,
-      bonusTimePerc: 0.1,
-      bonusMetaGeralPerc: 0,
-      conversaoBase: 30,
-      multiplicador: 3.3333,
+      bonusBradescoPerc: 0.25, // 25% sobre a BASE
+      bonusMetaPerc: 0.1, // 10% sobre a BASE
+      bonusPerformancePerc: 0.15, // 15% sobre a BASE
+      bonusTimePerc: 0.1, // 10% sobre a BASE
+      bonusMetaGeralPerc: 0, // Não disponível para JUNIOR
+      metaConversao: 30, // Meta de conversão: 30%
     },
     [NivelExecutivo.PLENO]: {
-      taxa: 0.5,
+      percentualBase: 0.5, // 50% sobre o valor do contrato
       label: 'Pleno',
-      bonusBradescoPerc: 0.25,
-      bonusMetaPerc: 0.1,
-      bonusPerformancePerc: 0.15,
-      bonusTimePerc: 0.05,
-      bonusMetaGeralPerc: 0.05,
-      conversaoBase: 60,
-      multiplicador: 1.66,
+      bonusBradescoPerc: 0.25, // 25% sobre a BASE
+      bonusMetaPerc: 0.1, // 10% sobre a BASE
+      bonusPerformancePerc: 0.15, // 15% sobre a BASE
+      bonusTimePerc: 0.05, // 5% sobre a BASE
+      bonusMetaGeralPerc: 0.05, // 5% sobre a BASE
+      metaConversao: 60, // Meta de conversão: 60%
     },
     [NivelExecutivo.SENIOR]: {
-      taxa: 0.7,
+      percentualBase: 0.7, // 70% sobre o valor do contrato
       label: 'Sênior',
-      bonusBradescoPerc: 0.25,
-      bonusMetaPerc: 0.05,
-      bonusPerformancePerc: 0.15,
-      bonusTimePerc: 0.1,
-      bonusMetaGeralPerc: 0.05,
-      conversaoBase: 70,
-      multiplicador: 1.43,
+      bonusBradescoPerc: 0.25, // 25% sobre a BASE
+      bonusMetaPerc: 0.05, // 5% sobre a BASE
+      bonusPerformancePerc: 0.15, // 15% sobre a BASE
+      bonusTimePerc: 0.1, // 10% sobre a BASE
+      bonusMetaGeralPerc: 0.05, // 5% sobre a BASE
+      metaConversao: 70, // Meta de conversão: 70%
     },
   };
 
@@ -107,43 +103,42 @@ export class ComissoesService {
       );
     }
 
-    // Validação: Bônus Meta Geral só para PLENO e SENIOR
-    if (
-      simulacao.bonusMetaGeral &&
-      nivelExecutivo === NivelExecutivo.JUNIOR
-    ) {
-      throw new BadRequestException(
-        'Bônus Meta Geral não disponível para nível Júnior',
-      );
-    }
+    // Validação: Bônus Meta Geral é ignorado para JUNIOR (não lança erro, apenas não aplica)
 
     const config = this.niveisConfig[nivelExecutivo];
+    
+    // 1. Encontrar a faixa do contrato para definir categoria e bônus fixo
     const faixa = this.faixasContratos.find(
       (f) =>
         simulacao.valorContrato >= f.min &&
         simulacao.valorContrato <= f.max,
     );
 
-    // Cálculo da comissão base
-    const comissaoBase = simulacao.valorContrato * config.taxa;
-
-    // Bônus fixo por faixa
-    let bonusFixo = 0;
-    if (faixa) {
-      switch (nivelExecutivo) {
-        case NivelExecutivo.JUNIOR:
-          bonusFixo = faixa.bonusJunior;
-          break;
-        case NivelExecutivo.PLENO:
-          bonusFixo = faixa.bonusPleno;
-          break;
-        case NivelExecutivo.SENIOR:
-          bonusFixo = faixa.bonusSenior;
-          break;
-      }
+    if (!faixa) {
+      throw new BadRequestException(
+        `Valor do contrato (R$ ${simulacao.valorContrato}) fora das faixas permitidas (mínimo: R$ 500)`,
+      );
     }
 
-    // Cálculo dos bônus percentuais
+    // 2. Calcular a BASE DA COMISSÃO
+    // BaseComissao = ValorContrato × PercentualNivel
+    const comissaoBase = simulacao.valorContrato * config.percentualBase;
+
+    // 3. Obter BÔNUS FIXO da faixa (depende da faixa e do nível)
+    let bonusFixo = 0;
+    switch (nivelExecutivo) {
+      case NivelExecutivo.JUNIOR:
+        bonusFixo = faixa.bonusJunior;
+        break;
+      case NivelExecutivo.PLENO:
+        bonusFixo = faixa.bonusPleno;
+        break;
+      case NivelExecutivo.SENIOR:
+        bonusFixo = faixa.bonusSenior;
+        break;
+    }
+
+    // 4. Calcular BÔNUS PERCENTUAIS (sempre sobre a BASE)
     const valorBonusBradesco = simulacao.bonusBradesco
       ? comissaoBase * config.bonusBradescoPerc
       : 0;
@@ -160,36 +155,41 @@ export class ComissoesService {
       ? comissaoBase * config.bonusTimePerc
       : 0;
 
+    // Meta Geral apenas para PLENO e SENIOR (ignorar se JUNIOR)
     const valorBonusMetaGeral =
       simulacao.bonusMetaGeral && nivelExecutivo !== NivelExecutivo.JUNIOR
         ? comissaoBase * config.bonusMetaGeralPerc
         : 0;
 
-    // Comissão total bruta (antes da conversão)
+    // 5. Calcular COMISSÃO BRUTA
+    // ComissaoBruta = BaseComissao + SomaBonusPercentuais + BonusFixoDaFaixa
     const comissaoTotalBruta =
       comissaoBase +
-      bonusFixo +
       valorBonusBradesco +
       valorBonusMeta +
       valorBonusPerformance +
       valorBonusTime +
-      valorBonusMetaGeral;
+      valorBonusMetaGeral +
+      bonusFixo;
 
-    // Cálculo do multiplicador de conversão
-    const txConversaoDecimal = simulacao.taxaConversao / 100;
-    const multiplicadorConversao = Math.min(
-      txConversaoDecimal * config.multiplicador,
+    // 6. Calcular TAXA EQUIVALENTE
+    // TaxaEquivalente = TaxaConversaoReal ÷ MetaNivel (limitado a 1.0)
+    const taxaEquivalente = Math.min(
+      simulacao.taxaConversao / config.metaConversao,
       1.0,
     );
 
-    // Comissão final após aplicar multiplicador
-    const comissaoFinal = comissaoTotalBruta * multiplicadorConversao;
+    // 7. Calcular COMISSÃO FINAL
+    // ComissaoFinal = ComissaoBruta × TaxaEquivalente
+    const comissaoFinal = comissaoTotalBruta * taxaEquivalente;
 
-    // Percentual final sobre o contrato
+    // 8. Calcular PERCENTUAL FINAL
     const percentualFinal = (comissaoFinal / simulacao.valorContrato) * 100;
 
+    // 9. ARREDONDAMENTO: Todos os cálculos em ponto flutuante,
+    // arredondar apenas no valor final retornado (2 casas decimais)
     return {
-      valorContrato: simulacao.valorContrato,
+      valorContrato: Number(simulacao.valorContrato.toFixed(2)),
       comissaoBase: Number(comissaoBase.toFixed(2)),
       bonusFixo: Number(bonusFixo.toFixed(2)),
       valorBonusBradesco: Number(valorBonusBradesco.toFixed(2)),
@@ -198,45 +198,13 @@ export class ComissoesService {
       valorBonusTime: Number(valorBonusTime.toFixed(2)),
       valorBonusMetaGeral: Number(valorBonusMetaGeral.toFixed(2)),
       comissaoTotalBruta: Number(comissaoTotalBruta.toFixed(2)),
-      multiplicadorConversao: Number(multiplicadorConversao.toFixed(4)),
+      multiplicadorConversao: Number(taxaEquivalente.toFixed(4)),
       comissaoFinal: Number(comissaoFinal.toFixed(2)),
       percentualFinal: Number(percentualFinal.toFixed(2)),
-      categoria: faixa?.categoria || 'N/A',
-      conversaoBase: config.conversaoBase,
+      categoria: faixa.categoria,
+      conversaoBase: config.metaConversao,
       nivelExecutivo: nivelExecutivo,
     };
   }
 
-  /**
-   * Método legado mantido para compatibilidade
-   * @deprecated Use calcularComissao() ao invés deste método
-   */
-  calcular(valorVenda: number, tipoProduto: string) {
-    const percentual = this.obterPercentual(tipoProduto);
-    const valorComissao = Number((valorVenda * percentual).toFixed(2));
-
-    return {
-      valorVenda,
-      percentual,
-      valorComissao,
-    };
-  }
-
-  /**
-   * MODELO DE COMISSÃO TRADS
-   * (substituir conforme planilha oficial)
-   * @deprecated Este método será removido quando o novo modelo estiver completo
-   */
-  private obterPercentual(tipoProduto: string): number {
-    switch (tipoProduto) {
-      case 'PLANO_SAUDE':
-        return 0.05; // 5%
-      case 'SEGURO_VIDA':
-        return 0.08; // 8%
-      case 'PME':
-        return 0.06; // 6%
-      default:
-        return 0.04; // padrão
-    }
-  }
 }
