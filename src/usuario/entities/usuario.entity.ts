@@ -87,7 +87,7 @@ export class Usuario {
     nullable: true,
   })
   @ApiProperty({
-    description: 'ID do vendedor no sistema legado',
+    description: 'ID do vendedor no BD de contratos da empresa',
     required: false,
   })
   vendedorId: number | null;

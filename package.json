@@ -1,8 +1,8 @@
 {
-  "name": "blogpessoal",
+  "name": "Calculadora de Comissões",
   "version": "0.0.1",
-  "description": "",
-  "author": "",
+  "description": "Calculadora de Comissões e Relatórios",
+  "author": "Trads Corretora de Seguros",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {

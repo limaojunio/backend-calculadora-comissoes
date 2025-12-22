@@ -13,14 +13,14 @@ import { RelatoriosModule } from './relatorios/relatorios.module';
   imports: [
     ConfigModule.forRoot(),
 
-    // 🔹 CONEXÃO PRINCIPAL (sistema de autenticação / usuários)
+    // 🔹 CONEXÃO (sistema de autenticação / usuários)
     TypeOrmModule.forRootAsync({
       name: 'default',
       useClass: ProdService,
       imports: [ConfigModule],
     }),
 
-    // 🔹 CONEXÃO LEGADA (READ ONLY – sistema da empresa)
+    // 🔹 CONEXÃO (BD de contratos da empresa)
     TypeOrmModule.forRootAsync({
       name: 'legacy',
       imports: [ConfigModule],
