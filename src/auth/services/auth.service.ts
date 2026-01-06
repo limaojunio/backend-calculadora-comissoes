@@ -1,8 +1,12 @@
 import { JwtService } from '@nestjs/jwt';
 import { UsuarioService } from './../../usuario/services/usuario.service';
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { Bcrypt } from '../bcrypt/bcrypt';
 import { UsuarioLogin } from '../entities/usuariologin.entity';
+import { UsuarioExecutivo } from '../entities/usuario-executivo.entity';
+import { Role } from '../../usuario/entities/usuario.entity';
 
 @Injectable()
 export class AuthService {
@@ -10,6 +14,8 @@ export class AuthService {
     private usuarioService: UsuarioService,
     private jwtService: JwtService,
     private bcrypt: Bcrypt,
+    @InjectRepository(UsuarioExecutivo)
+    private usuarioExecutivoRepository: Repository<UsuarioExecutivo>,
   ) {}
 
   async validateUser(username: string, password: string): Promise<any> {
@@ -41,6 +47,23 @@ export class AuthService {
       throw new HttpException('Usuário não encontrado!', HttpStatus.NOT_FOUND);
     }
 
+    // Buscar usuario_executivo ativo
+    const usuarioExecutivo = await this.usuarioExecutivoRepository.findOne({
+      where: {
+        usuarioId: usuario.id,
+        ativo: true,
+      },
+    });
+
+    const nomeExecutivo = usuarioExecutivo?.nomeExecutivo || null;
+
+    // Regra de negócio: VENDEDOR deve ter nomeExecutivo
+    if (usuario.role === Role.VENDEDOR && !nomeExecutivo) {
+      throw new BadRequestException(
+        'Usuário vendedor deve estar vinculado a um executivo ativo no Bitrix.',
+      );
+    }
+
     /**
      * JWT CARREGA AUTORIZAÇÃO
      */
@@ -50,6 +73,7 @@ export class AuthService {
       role: usuario.role,
       nivelExecutivo: usuario.nivelExecutivo,
       vendedorId: usuario.vendedorId,
+      nomeExecutivo: nomeExecutivo,
     };
 
     return {
@@ -60,6 +84,7 @@ export class AuthService {
       role: usuario.role,
       nivelExecutivo: usuario.nivelExecutivo,
       vendedorId: usuario.vendedorId,
+      nomeExecutivo: nomeExecutivo,
       token: `Bearer ${this.jwtService.sign(payload)}`,
     };
   }

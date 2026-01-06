@@ -13,7 +13,7 @@ export class ProdService implements TypeOrmOptionsFactory {
       database: process.env.DB_NAME,
 
       autoLoadEntities: true,
-      synchronize: true, // ⚠️ usar false em produção real
+      synchronize: false, // ⚠️ usar false em produção real
       logging: false,
     };
   }
