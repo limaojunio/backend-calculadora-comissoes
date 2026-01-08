@@ -8,25 +8,53 @@ import { ComissoesService } from '../comissoes/comissoes.service';
 import { Role, NivelExecutivo } from '../usuario/entities/usuario.entity';
 import { SimulacaoDto } from '../comissoes/dto/simulacao.dto';
 import { ContratoDto } from './dto/contrato.dto';
+import { UsuarioExecutivo } from '../auth/entities/usuario-executivo.entity';
+import { Usuario } from '../usuario/entities/usuario.entity';
 
 @Injectable()
 export class ContratosService {
   constructor(
     @InjectRepository(AnaliseDetalhada, 'bitrix')
     private readonly analiseDetalhadaRepository: Repository<AnaliseDetalhada>,
+    @InjectRepository(UsuarioExecutivo, 'default')
+    private readonly usuarioExecutivoRepository: Repository<UsuarioExecutivo>,
+    @InjectRepository(Usuario, 'default')
+    private readonly usuarioRepository: Repository<Usuario>,
     private readonly comissaoService: ComissoesService,
   ) {}
 
-  async listarContratos(usuario: any): Promise<ContratoDto[]> {
-    // Validar que o usuário tem nivelExecutivo no token JWT
-    if (!usuario.nivelExecutivo) {
-      throw new BadRequestException(
-        'Nível executivo não encontrado no token JWT. Faça login novamente.',
-      );
+  /**
+   * Busca o mapa de nome_executivo -> nivelExecutivo para todos os executivos
+   * Evita N+1 queries fazendo uma única consulta com JOIN
+   */
+  private async buscarMapaNivelExecutivo(): Promise<Map<string, NivelExecutivo>> {
+    const mapa = new Map<string, NivelExecutivo>();
+
+    // Buscar todos os usuario_executivo ativos com JOIN em tb_usuarios
+    const executivos = await this.usuarioExecutivoRepository
+      .createQueryBuilder('ue')
+      .innerJoin(Usuario, 'usuario', 'usuario.id = ue.usuarioId')
+      .select('ue.nomeExecutivo', 'nome_executivo')
+      .addSelect('usuario.nivelExecutivo', 'nivel_executivo')
+      .where('ue.ativo = :ativo', { ativo: true })
+      .andWhere('ue.nomeExecutivo IS NOT NULL')
+      .getRawMany();
+
+    // Construir mapa nome_executivo -> nivelExecutivo
+    for (const row of executivos) {
+      // TypeORM retorna campos com os aliases especificados
+      const nomeExecutivo = row.nome_executivo;
+      const nivelExecutivo = row.nivel_executivo;
+      
+      if (nomeExecutivo && nivelExecutivo) {
+        mapa.set(String(nomeExecutivo), nivelExecutivo as NivelExecutivo);
+      }
     }
 
-    const nivelExecutivo = usuario.nivelExecutivo as NivelExecutivo;
+    return mapa;
+  }
 
+  async listarContratos(usuario: any): Promise<ContratoDto[]> {
     // Construir query com TypeORM QueryBuilder
     const queryBuilder = this.analiseDetalhadaRepository
       .createQueryBuilder('analise')
@@ -62,6 +90,9 @@ export class ContratosService {
 
     const resultados = await queryBuilder.getRawMany();
 
+    // 🔧 Buscar mapa de nivelExecutivo dos executivos (uma única query)
+    const mapaNivelExecutivo = await this.buscarMapaNivelExecutivo();
+
     // Mapear resultados e calcular comissões
     const contratosMapeados = resultados.map((row) => {
       try {
@@ -85,6 +116,20 @@ export class ContratosService {
         // Apenas calcular comissão se o valor for válido (>= 500)
         if (contratoValido) {
           try {
+            // 🔧 CORREÇÃO: Buscar nivelExecutivo do EXECUTIVO DO CONTRATO
+            // não do usuário logado
+            const nomeExecutivoContrato = (row.analise_nome_executivo || row.analise_nomeExecutivo) 
+              ? String(row.analise_nome_executivo || row.analise_nomeExecutivo) 
+              : null;
+
+            // Buscar nivelExecutivo do executivo que fechou o contrato
+            const nivelExecutivoContrato = nomeExecutivoContrato 
+              ? mapaNivelExecutivo.get(nomeExecutivoContrato) 
+              : null;
+
+            // Se não encontrar o executivo, usar JUNIOR como padrão (mais conservador)
+            const nivelExecutivo = nivelExecutivoContrato || NivelExecutivo.JUNIOR;
+
             // Para listagem de contratos, usar valores padrão:
             // - Taxa de conversão = meta do nível (100% de equivalência)
             // - Sem bônus (apenas comissão base + bônus fixo da faixa)
@@ -106,7 +151,7 @@ export class ContratosService {
 
             const comissao = this.comissaoService.calcularComissao(
               simulacao,
-              nivelExecutivo,
+              nivelExecutivo, // Usar nivelExecutivo do executivo do contrato
             );
 
             comissaoCalculada = comissao.comissaoFinal || 0;
