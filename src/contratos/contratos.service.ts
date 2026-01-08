@@ -139,10 +139,14 @@ export class ContratosService {
               [NivelExecutivo.SENIOR]: 70,
             };
 
+            // Obter operadora do contrato para aplicar bônus Bradesco automaticamente
+            const operadora = (row.analise_operadora || '') ? String(row.analise_operadora) : '';
+            const bonusBradesco = operadora.toUpperCase().includes('BRADESCO');
+
             const simulacao: SimulacaoDto = {
               valorContrato: valorProposta,
               taxaConversao: metasConversao[nivelExecutivo], // Meta atingida = 100% de equivalência
-              bonusBradesco: false,
+              bonusBradesco: bonusBradesco,
               bonusMeta: false,
               bonusPerformance: false,
               bonusTime: false,
