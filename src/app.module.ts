@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
@@ -8,32 +8,37 @@ import { ProdService } from './data/services/prod.service';
 import { HealthModule } from './health/health.module';
 import { UsuarioModule } from './usuario/usuario.module';
 import { RelatoriosModule } from './relatorios/relatorios.module';
+import { AnaliseDetalhada } from './contratos/entities/analise-detalhada.entity';
+import { ExecutivoTime } from './contratos/entities/executivo-time.entity';
+import { Times } from './contratos/entities/times.entity';
 
 @Module({
   imports: [
     ConfigModule.forRoot(),
 
-    // 🔹 CONEXÃO (sistema de autenticação / usuários)
+    // 🔹 CONEXÃO DEFAULT (sistema de autenticação / usuários - MySQL)
     TypeOrmModule.forRootAsync({
       name: 'default',
       useClass: ProdService,
       imports: [ConfigModule],
     }),
 
-    // 🔹 CONEXÃO (BD de contratos da empresa)
+    // 🔹 CONEXÃO BITRIX (contratos - PostgreSQL)
     TypeOrmModule.forRootAsync({
-      name: 'legacy',
+      name: 'bitrix',
       imports: [ConfigModule],
-      inject: [],
-      useFactory: () => ({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
         type: 'postgres',
-        host: process.env.LEGACY_DB_HOST,
-        port: Number(process.env.LEGACY_DB_PORT),
-        username: process.env.LEGACY_DB_USER,
-        password: process.env.LEGACY_DB_PASS,
-        database: process.env.LEGACY_DB_NAME,
+        host: configService.get('BITRIX_DB_HOST') || process.env.BITRIX_DB_HOST,
+        port: Number(configService.get('BITRIX_DB_PORT') || process.env.BITRIX_DB_PORT || 5432),
+        username: configService.get('BITRIX_DB_USER') || process.env.BITRIX_DB_USER,
+        password: configService.get('BITRIX_DB_PASS') || process.env.BITRIX_DB_PASS,
+        database: 'bitrix',
+        schema: 'sistema_comissao_vendedor',
         synchronize: false,
-        entities: [],
+        logging: false,
+        entities: [AnaliseDetalhada, ExecutivoTime, Times],
       }),
     }),
 

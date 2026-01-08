@@ -1,13 +1,22 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { ComissoesModule } from '../comissoes/comissoes.module';
 import { ContratosController } from './contratos.controller';
 import { ContratosService } from './contratos.service';
-import { ContratosLegacyRepository } from './infra/contratos-legacy.repository';
+import { AnaliseDetalhada } from './entities/analise-detalhada.entity';
+import { ExecutivoTime } from './entities/executivo-time.entity';
+import { Times } from './entities/times.entity';
 
 @Module({
-  imports: [ComissoesModule],
+  imports: [
+    TypeOrmModule.forFeature(
+      [AnaliseDetalhada, ExecutivoTime, Times],
+      'bitrix',
+    ),
+    ComissoesModule,
+  ],
   controllers: [ContratosController],
-  providers: [ContratosService, ContratosLegacyRepository],
+  providers: [ContratosService],
   exports: [ContratosService],
 })
 export class ContratosModule {}

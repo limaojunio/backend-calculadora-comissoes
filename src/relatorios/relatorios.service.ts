@@ -16,20 +16,26 @@ export class RelatoriosService {
     const contratos = await this.contratosService.listarContratos(usuario);
 
     const filtrados = contratos.filter((c) => {
-      const data = new Date(c.dataImplantacao);
+      if (!c.dataContrato) {
+        return false;
+      }
+      const data = new Date(c.dataContrato);
       return (
         data.getMonth() + 1 === mes &&
         data.getFullYear() === ano
       );
     });
 
-    const totalVendido = filtrados.reduce(
-      (acc, c) => acc + Number(c.valor),
+    // Filtrar apenas contratos válidos para cálculos de totais
+    const contratosValidos = filtrados.filter((c) => c.contratoValido === true);
+
+    const totalVendido = contratosValidos.reduce(
+      (acc, c) => acc + Number(c.valorProposta),
       0,
     );
 
-    const totalComissao = filtrados.reduce(
-      (acc, c) => acc + Number(c.valorComissao),
+    const totalComissao = contratosValidos.reduce(
+      (acc, c) => acc + Number(c.comissaoCalculada),
       0,
     );
 

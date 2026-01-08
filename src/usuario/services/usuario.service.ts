@@ -43,14 +43,40 @@ export class UsuarioService {
       throw new HttpException('O usuário já existe!', HttpStatus.BAD_REQUEST);
     }
 
+    const senhaOriginal = usuario.senha;
     usuario.senha = await this.bcrypt.criptografarSenha(usuario.senha);
+    
+    // 🔍 LOG TEMPORÁRIO PARA DEBUG
+    console.log('========================================');
+    console.log('🔐 DEBUG - CRIAÇÃO DE USUÁRIO');
+    console.log('========================================');
+    console.log('Email/Usuário:', usuario.usuario);
+    console.log('Senha original (primeiros 3 chars):', senhaOriginal.substring(0, 3) + '***');
+    console.log('Senha hashada:', usuario.senha);
+    console.log('Tamanho do hash:', usuario.senha.length);
+    console.log('Hash começa com:', usuario.senha.substring(0, 10));
+    console.log('========================================');
 
     // Segurança: garante papel padrão
     if (!usuario.role) {
       usuario.role = Role.VENDEDOR;
     }
 
-    return this.usuarioRepository.save(usuario);
+    const usuarioSalvo = await this.usuarioRepository.save(usuario);
+    
+    // 🔍 LOG TEMPORÁRIO - Verificar o que foi salvo
+    const usuarioVerificado = await this.findById(usuarioSalvo.id);
+    console.log('========================================');
+    console.log('🔍 VERIFICAÇÃO PÓS-SALVAMENTO');
+    console.log('========================================');
+    console.log('ID do usuário salvo:', usuarioVerificado.id);
+    console.log('Senha no banco (tamanho):', usuarioVerificado.senha?.length || 0);
+    console.log('Senha no banco (início):', usuarioVerificado.senha?.substring(0, 10) || 'NULL');
+    console.log('Hash original (início):', usuario.senha.substring(0, 10));
+    console.log('Hashes coincidem?', usuarioVerificado.senha?.substring(0, 10) === usuario.senha.substring(0, 10));
+    console.log('========================================');
+
+    return usuarioSalvo;
   }
 
   async update(usuario: Usuario): Promise<Usuario> {

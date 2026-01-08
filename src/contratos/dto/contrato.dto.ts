@@ -2,23 +2,32 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class ContratoDto {
   @ApiProperty()
-  idCard: number;
+  id: number;
 
   @ApiProperty()
-  nomeCard: string;
+  cliente: string | null;
 
   @ApiProperty()
-  corretorNome: string;
+  valorProposta: number;
 
   @ApiProperty()
-  valor: number;
+  comissaoCalculada: number;
 
   @ApiProperty()
-  valorComissao: number;
+  operadora: string | null;
 
   @ApiProperty()
-  dataImplantacao: Date;
+  linkCard: string | null;
 
   @ApiProperty()
-  statusAtual: string;
+  nomeExecutivo: string | null;
+
+  @ApiProperty()
+  nomeTime: string | null;
+
+  @ApiProperty()
+  dataContrato: Date | null;
+
+  @ApiProperty()
+  contratoValido: boolean;
 }
